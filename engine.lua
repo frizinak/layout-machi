@@ -225,12 +225,13 @@ local function areas_from_command(command, workarea, minimum)
     local arg_str = ""
     local closed_areas = {}
     local open_areas
+    local b = require("beautiful")
     local root = {
         expansion = default_expansion,
-        x = workarea.x,
-        y = workarea.y,
-        width = workarea.width,
-        height = workarea.height,
+        x = workarea.x + b.border_x0,
+        y = workarea.y + b.border_y0,
+        width = workarea.width - b.border_x0 - b.border_x1,
+        height = workarea.height - b.border_y0 - b.border_y1,
         bl = true,
         br = true,
         bu = true,
