@@ -83,29 +83,7 @@ function module.start(c, exit_keys)
         return
     end
 
-    local infobox = wibox({
-            screen = screen,
-            x = screen.workarea.x,
-            y = screen.workarea.y,
-            width = 1, -- screen.workarea.width,
-            height = 1, --screen.workarea.height,
-            bg = "#ffffff00",
-            opacity = 1,
-            ontop = false,
-            type = "normal",
-    })
-    local infotabbox = wibox({
-            screen = screen,
-            x = screen.workarea.x,
-            y = screen.workarea.y,
-            width = 1,
-            height = 1,
-            bg = "#ffffff00",
-            ontop = true,
-            type = "normal",
-            visible = true,
-    })
-
+    local infobox, infotabbox
     local tablist = nil
     local tablist_index = nil
 
@@ -306,34 +284,212 @@ function module.start(c, exit_keys)
         -- cr:fill()
     end
 
-    infobox.bgimage = draw_info
-    infotabbox.bgimage = draw_tab_info
-
-    local key_translate_tab = {
-        ["k"] = "Up",
-        ["h"] = "Left",
-        ["j"] = "Down",
-        ["l"] = "Right",
-        ["K"] = "Up",
-        ["H"] = "Left",
-        ["J"] = "Down",
-        ["L"] = "Right",
-    }
-
-    awful.client.focus.history.disable_tracking()
-
-    local kg
-    local function exit()
-        awful.client.focus.history.enable_tracking()
-        if capi.client.focus then
-            capi.client.emit_signal("focus", capi.client.focus)
+    local draw = function()
+        if infobox ~= nil then
+            infobox.bgimage = draw_info
         end
-        infobox.visible = false
-        infotabbox.visible = false
-        awful.keygrabber.stop(kg)
+        if infotabbox ~= nil then
+            infotabbox.bgimage = draw_tab_info
+        end
+    end
+
+
+    local direction = function (dir, move, draft)
+        dir = string.lower(dir)
+        local current_area = selected_area()
+
+        if c and move then
+            if current_area == nil or
+                areas[current_area].x ~= c.x or
+                areas[current_area].y ~= c.y
+            then
+                traverse_x = c.x + traverse_radius
+                traverse_y = c.y + traverse_radius
+                set_selected_area(nil)
+            end
+        elseif c and draft then
+            local ex = c.x + c.width + c.border_width * 2
+            local ey = c.y + c.height + c.border_width * 2
+            if current_area == nil or
+                areas[current_area].x + areas[current_area].width ~= ex or
+                areas[current_area].y + areas[current_area].height ~= ey
+            then
+                traverse_x = ex - traverse_radius
+                traverse_y = ey - traverse_radius
+                set_selected_area(nil)
+            end
+        end
+
+        local choice = nil
+        local choice_value
+
+        current_area = selected_area()
+
+        for i, a in ipairs(areas) do
+            if not a.habitable then goto continue end
+
+            local v
+            if dir == "up" then
+                if a.x < traverse_x + threshold
+                    and traverse_x < a.x + a.width + threshold then
+                    v = traverse_y - a.y - a.height
+                else
+                    v = -1
+                end
+            elseif dir == "down" then
+                if a.x < traverse_x + threshold
+                    and traverse_x < a.x + a.width + threshold then
+                    v = a.y - traverse_y
+                else
+                    v = -1
+                end
+            elseif dir == "left" then
+                if a.y < traverse_y + threshold
+                    and traverse_y < a.y + a.height + threshold then
+                    v = traverse_x - a.x - a.width
+                else
+                    v = -1
+                end
+            elseif dir == "right" then
+                if a.y < traverse_y + threshold
+                    and traverse_y < a.y + a.height + threshold then
+                    v = a.x - traverse_x
+                else
+                    v = -1
+                end
+            end
+
+            if (v > threshold) and (choice_value == nil or choice_value > v) then
+                choice = i
+                choice_value = v
+            end
+            ::continue::
+        end
+
+        if choice == nil then
+            choice = current_area
+            if dir == "up" then
+                traverse_y = screen.workarea.y
+            elseif dir == "down" then
+                traverse_y = screen.workarea.y + screen.workarea.height
+            elseif dir == "left" then
+                traverse_x = screen.workarea.x
+            else
+                traverse_x = screen.workarea.x + screen.workarea.width
+            end
+        end
+
+        if choice ~= nil then
+            tablist = nil
+            set_selected_area(choice)
+
+            if c and draft and cd[c].draft ~= false then
+                local lu = cd[c].lu or cd[c].area
+                local rd = cd[c].rd or cd[c].area
+
+                if draft and move then
+                    lu = choice
+                    if areas[rd].x + areas[rd].width <= areas[lu].x or
+                        areas[rd].y + areas[rd].height <= areas[lu].y
+                    then
+                        rd = nil
+                    end
+                else
+                    rd = choice
+                    if areas[rd].x + areas[rd].width <= areas[lu].x or
+                        areas[rd].y + areas[rd].height <= areas[lu].y
+                    then
+                        lu = nil
+                    end
+                end
+
+                if lu ~= nil and rd ~= nil then
+                    machi.layout.set_geometry(c, areas[lu], areas[rd], 0, c.border_width)
+                elseif lu ~= nil then
+                    machi.layout.set_geometry(c, areas[lu], nil, 0, c.border_width)
+                elseif rd ~= nil then
+                    c.x = min(c.x, areas[rd].x)
+                    c.y = min(c.y, areas[rd].y)
+                    machi.layout.set_geometry(c, nil, areas[rd], 0, c.border_width)
+                end
+
+                if lu == rd and cd[c].draft ~= true then
+                    cd[c].lu = nil
+                    cd[c].rd = nil
+                    cd[c].area = lu
+                else
+                    cd[c].lu = lu
+                    cd[c].rd = rd
+                    cd[c].area = nil
+                end
+
+                c:emit_signal("request::activate", "mouse.move", {raise=false})
+                c:raise()
+                awful.layout.arrange(screen)
+            elseif c and move then
+                -- move the window
+                local in_draft = cd[c].draft
+                if cd[c].draft ~= nil then
+                    in_draft = cd[c].draft
+                elseif cd[c].lu then
+                    in_draft = true
+                elseif cd[c].area then
+                    in_draft = false
+                else
+                    log(ERROR, "Assuming in_draft for unhandled client "..tostring(c))
+                    in_draft = true
+                end
+                if in_draft then
+                    c.x = areas[choice].x
+                    c.y = areas[choice].y
+                else
+                    machi.layout.set_geometry(c, areas[choice], areas[choice], 0, c.border_width)
+                    cd[c].lu = nil
+                    cd[c].rd = nil
+                    cd[c].area = choice
+                end
+                c:emit_signal("request::activate", "mouse.move", {raise=false})
+                c:raise()
+                awful.layout.arrange(screen)
+
+                tablist = nil
+            else
+                maintain_tablist()
+                -- move the focus
+                if #tablist > 0 and tablist[1] ~= c then
+                    c = tablist[1]
+                    capi.client.focus = c
+                end
+            end
+
+            draw()
+        end
+    end
+
+    local tab = function ()
+        maintain_tablist()
+        if #tablist > 0 then
+            tablist_index = tablist_index % #tablist + 1
+            c = tablist[tablist_index]
+            c:emit_signal("request::activate", "mouse.move", {raise=false})
+            c:raise()
+
+            draw()
+        end
     end
 
     local function handle_key(mod, key, event)
+        local key_translate_tab = {
+            ["k"] = "Up",
+            ["h"] = "Left",
+            ["j"] = "Down",
+            ["l"] = "Right",
+            ["K"] = "Up",
+            ["H"] = "Left",
+            ["J"] = "Down",
+            ["L"] = "Right",
+        }
+
         if event == "release" then
             if exit_keys and exit_keys[key] then
                 exit()
@@ -358,187 +514,9 @@ function module.start(c, exit_keys)
         end
 
         if key == "Tab" then
-            if #tablist > 0 then
-                tablist_index = tablist_index % #tablist + 1
-                c = tablist[tablist_index]
-                c:emit_signal("request::activate", "mouse.move", {raise=false})
-                c:raise()
-
-                infobox.bgimage = draw_info
-                infotabbox.bgimage = draw_tab_info
-            end
+            tab()
         elseif key == "Up" or key == "Down" or key == "Left" or key == "Right" then
-            local current_area = selected_area()
-
-            if c and (super or shift or ctrl) then
-                if super or shift then
-                    if current_area == nil or
-                        areas[current_area].x ~= c.x or
-                        areas[current_area].y ~= c.y
-                    then
-                        traverse_x = c.x + traverse_radius
-                        traverse_y = c.y + traverse_radius
-                        set_selected_area(nil)
-                    end
-                elseif ctrl then
-                    local ex = c.x + c.width + c.border_width * 2
-                    local ey = c.y + c.height + c.border_width * 2
-                    if current_area == nil or
-                        areas[current_area].x + areas[current_area].width ~= ex or
-                        areas[current_area].y + areas[current_area].height ~= ey
-                    then
-                        traverse_x = ex - traverse_radius
-                        traverse_y = ey - traverse_radius
-                        set_selected_area(nil)
-                    end
-                end
-            end
-
-            local choice = nil
-            local choice_value
-
-            current_area = selected_area()
-
-            for i, a in ipairs(areas) do
-                if not a.habitable then goto continue end
-
-                local v
-                if key == "Up" then
-                    if a.x < traverse_x + threshold
-                        and traverse_x < a.x + a.width + threshold then
-                        v = traverse_y - a.y - a.height
-                    else
-                        v = -1
-                    end
-                elseif key == "Down" then
-                    if a.x < traverse_x + threshold
-                        and traverse_x < a.x + a.width + threshold then
-                        v = a.y - traverse_y
-                    else
-                        v = -1
-                    end
-                elseif key == "Left" then
-                    if a.y < traverse_y + threshold
-                        and traverse_y < a.y + a.height + threshold then
-                        v = traverse_x - a.x - a.width
-                    else
-                        v = -1
-                    end
-                elseif key == "Right" then
-                    if a.y < traverse_y + threshold
-                        and traverse_y < a.y + a.height + threshold then
-                        v = a.x - traverse_x
-                    else
-                        v = -1
-                    end
-                end
-
-                if (v > threshold) and (choice_value == nil or choice_value > v) then
-                    choice = i
-                    choice_value = v
-                end
-                ::continue::
-            end
-
-            if choice == nil then
-                choice = current_area
-                if key == "Up" then
-                    traverse_y = screen.workarea.y
-                elseif key == "Down" then
-                    traverse_y = screen.workarea.y + screen.workarea.height
-                elseif key == "Left" then
-                    traverse_x = screen.workarea.x
-                else
-                    traverse_x = screen.workarea.x + screen.workarea.width
-                end
-            end
-
-            if choice ~= nil then
-                tablist = nil
-                set_selected_area(choice)
-
-                if c and ctrl and cd[c].draft ~= false then
-                    local lu = cd[c].lu or cd[c].area
-                    local rd = cd[c].rd or cd[c].area
-
-                    if shift then
-                        lu = choice
-                        if areas[rd].x + areas[rd].width <= areas[lu].x or
-                            areas[rd].y + areas[rd].height <= areas[lu].y
-                        then
-                            rd = nil
-                        end
-                    else
-                        rd = choice
-                        if areas[rd].x + areas[rd].width <= areas[lu].x or
-                            areas[rd].y + areas[rd].height <= areas[lu].y
-                        then
-                            lu = nil
-                        end
-                    end
-
-                    if lu ~= nil and rd ~= nil then
-                        machi.layout.set_geometry(c, areas[lu], areas[rd], 0, c.border_width)
-                    elseif lu ~= nil then
-                        machi.layout.set_geometry(c, areas[lu], nil, 0, c.border_width)
-                    elseif rd ~= nil then
-                        c.x = min(c.x, areas[rd].x)
-                        c.y = min(c.y, areas[rd].y)
-                        machi.layout.set_geometry(c, nil, areas[rd], 0, c.border_width)
-                    end
-
-                    if lu == rd and cd[c].draft ~= true then
-                        cd[c].lu = nil
-                        cd[c].rd = nil
-                        cd[c].area = lu
-                    else
-                        cd[c].lu = lu
-                        cd[c].rd = rd
-                        cd[c].area = nil
-                    end
-
-                    c:emit_signal("request::activate", "mouse.move", {raise=false})
-                    c:raise()
-                    awful.layout.arrange(screen)
-                elseif c and (shift or super) then
-                    -- move the window
-                    local in_draft = cd[c].draft
-                    if cd[c].draft ~= nil then
-                        in_draft = cd[c].draft
-                    elseif cd[c].lu then
-                        in_draft = true
-                    elseif cd[c].area then
-                        in_draft = false
-                    else
-                        log(ERROR, "Assuming in_draft for unhandled client "..tostring(c))
-                        in_draft = true
-                    end
-                    if in_draft then
-                        c.x = areas[choice].x
-                        c.y = areas[choice].y
-                    else
-                        machi.layout.set_geometry(c, areas[choice], areas[choice], 0, c.border_width)
-                        cd[c].lu = nil
-                        cd[c].rd = nil
-                        cd[c].area = choice
-                    end
-                    c:emit_signal("request::activate", "mouse.move", {raise=false})
-                    c:raise()
-                    awful.layout.arrange(screen)
-
-                    tablist = nil
-                else
-                    maintain_tablist()
-                    -- move the focus
-                    if #tablist > 0 and tablist[1] ~= c then
-                        c = tablist[1]
-                        capi.client.focus = c
-                    end
-                end
-
-                infobox.bgimage = draw_info
-                infotabbox.bgimage = draw_tab_info
-            end
+            direction(key, shift or super, ctrl)
         elseif (key == "q" or key == "Prior") then
             local current_area = selected_area()
             if areas[current_area].parent_id == nil then
@@ -562,8 +540,7 @@ function module.start(c, exit_keys)
                 awful.layout.arrange(screen)
             end
 
-            infobox.bgimage = draw_info
-            infotabbox.bgimage = draw_tab_info
+            draw()
         elseif (key =="e" or key == "Next") then
             local current_area = selected_area()
             if #parent_stack <= 1 or parent_stack[#parent_stack] ~= current_area then
@@ -583,8 +560,7 @@ function module.start(c, exit_keys)
                 awful.layout.arrange(screen)
             end
 
-            infobox.bgimage = draw_info
-            infotabbox.bgimage = draw_tab_info
+            draw()
         elseif key == "/" then
             local current_area = selected_area()
             local original_cmd = machi.engine.areas_to_command(areas, true, current_area)
@@ -629,12 +605,59 @@ function module.start(c, exit_keys)
         end
     end
 
-    kg = awful.keygrabber.run(
-        function (...)
-            ok, _ = pcall(handle_key, ...)
-            if not ok then exit() end
+    local ui = function()
+        infobox = wibox({
+                screen = screen,
+                x = screen.workarea.x,
+                y = screen.workarea.y,
+                width = 1, -- screen.workarea.width,
+                height = 1, --screen.workarea.height,
+                bg = "#ffffff00",
+                opacity = 1,
+                ontop = false,
+                type = "normal",
+        })
+        infotabbox = wibox({
+                screen = screen,
+                x = screen.workarea.x,
+                y = screen.workarea.y,
+                width = 1,
+                height = 1,
+                bg = "#ffffff00",
+                ontop = true,
+                type = "normal",
+                visible = true,
+        })
+
+        draw()
+
+        awful.client.focus.history.disable_tracking()
+        local kg
+        local function exit()
+            awful.client.focus.history.enable_tracking()
+            if capi.client.focus then
+                capi.client.emit_signal("focus", capi.client.focus)
+            end
+            infobox.visible = false
+            infotabbox.visible = false
+            awful.keygrabber.stop(kg)
         end
-    )
+
+        kg = awful.keygrabber.run(
+            function (...)
+                ok, _ = pcall(handle_key, ...)
+                if not ok then exit() end
+            end
+        )
+    end
+
+    return {
+        ui = ui,
+        tab = tab,
+        direction = direction,
+        move = function(dir) direction(dir, true, false) end,
+        focus = function(dir) direction(dir, false, false) end,
+    }
 end
 
 return module
