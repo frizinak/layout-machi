@@ -203,9 +203,7 @@ function module.create(args_or_name, editor, default_cmd)
         if instance.cmd ~= cmd then
             instance.cmd = cmd
             instance.areas_cache = {}
-            for _, tag in pairs(instance.tag_data) do
-                tag:emit_signal("property::layout")
-            end
+            tag:emit_signal("property::layout")
             if not keep_instance_data then
                 instance.tag_data = {}
                 instance.client_data = setmetatable({}, {__mode="k"})
