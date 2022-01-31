@@ -1,3 +1,25 @@
+# Fork
+
+Personal fork, not planning to get this merged upstream as some changes
+are too personalised. Just patch what you like.
+
+Will try to make atomic commits you can easily rebase on upstream.
+
+## Changes
+
+- better switching ui, no transparency => no picom required
+- hjkl (instead of wasd / arrow keys)
+- in switching mode hjkl shifts focus, super+hjkl moves.
+- prevent overlapping windows as much as possible (called tabs in source)
+
+## Planned
+
+- prevent overlapping more or create simple keybind and a visual indication
+- don't require switching mode (super+/ by default) for simple window operations like swap/tab-cycle/...
+
+
+Original readme:
+
 # ![machi icon](icon.png) layout-machi
 
 A manual layout for Awesome with a rapid interactive editor.
