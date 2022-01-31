@@ -91,10 +91,20 @@ function module.start(c, exit_keys)
             height = screen.workarea.height,
             bg = "#ffffff00",
             opacity = 1,
-            ontop = true,
-            type = "dock",
+            ontop = false,
+            type = "normal",
+            visible = true,
     })
-    infobox.visible = true
+    local infotabbox = wibox({
+            screen = screen,
+            x = screen.workarea.x,
+            y = screen.workarea.y,
+            width = screen.workarea.width,
+            height = screen.workarea.height,
+            ontop = true,
+            type = "normal",
+            visible = true,
+    })
 
     local tablist = nil
     local tablist_index = nil
@@ -181,6 +191,71 @@ function module.start(c, exit_keys)
         end
     end
 
+
+    local function draw_tab_info(context, cr, width, height)
+        maintain_tablist()
+
+        local ext
+        local active_area = selected_area()
+        if #tablist > 0 then
+            local a = areas[active_area]
+            local pl = lgi.Pango.Layout.create(cr)
+            pl:set_font_description(tablist_font_desc)
+
+            local vpadding = dpi(10)
+            local hpadding = dpi(15)
+            local vborder  = dpi(5)
+            local hborder  = dpi(5)
+            local list_height = 2 * vborder
+            local list_width = 2 * hpadding + 2 * hborder
+            local exts = {}
+
+            for index, tc in ipairs(tablist) do
+                local label = tc.name or "<unnamed>"
+                pl:set_text(label)
+                local w, h
+                w, h = pl:get_size()
+                w = w / lgi.Pango.SCALE
+                h = h / lgi.Pango.SCALE
+                local ext = { width = w, height = h }
+                exts[#exts + 1] = ext
+                list_height = list_height + ext.height + vpadding
+                list_width = max(list_width, w + 2 * hpadding + 2 * hborder)
+            end
+
+            local y_offset = vborder
+            infotabbox.x = a.x + (a.width - list_width) / 2
+            infotabbox.y = a.y + (a.height - list_height) / 2
+            infotabbox.width = list_width
+            infotabbox.height = list_height
+
+            cr:rectangle(0, 0, list_width, list_height)
+            cr:set_source(border_color_hl)
+            cr:fill()
+
+            for index, tc in ipairs(tablist) do
+                local label = tc.name or "<unnamed>"
+                local ext = exts[index]
+                if index == tablist_index then
+                    cr:rectangle(hborder, y_offset, list_width - 2 * hborder, ext.height + vpadding)
+                    cr:set_source(fill_color_hl)
+                    cr:fill()
+                    pl:set_text(label)
+                    cr:move_to(hborder + hpadding, vpadding / 2 + y_offset)
+                    cr:set_source(font_color_hl)
+                    cr:show_layout(pl)
+                else
+                    pl:set_text(label)
+                    cr:move_to(hborder + hpadding, vpadding / 2 + y_offset)
+                    cr:set_source(font_color)
+                    cr:show_layout(pl)
+                end
+
+                y_offset = y_offset + ext.height + vpadding
+            end
+        end
+    end
+
     local function draw_info(context, cr, width, height)
         maintain_tablist()
 
@@ -188,11 +263,13 @@ function module.start(c, exit_keys)
         cr:rectangle(0, 0, width, height)
         cr:fill()
 
-        local msg, ext
+        local padx = 5
+        local pady = 5
+        local msg
         local active_area = selected_area()
         for i, a in ipairs(areas) do
             if a.habitable or i == active_area then
-                cr:rectangle(a.x - start_x, a.y - start_y, a.width, a.height)
+                cr:rectangle(a.x - padx - start_x, a.y - pady - start_y, a.width + 2*padx, a.height + 2*pady)
                 cr:clip()
                 cr:set_source(fill_color)
                 cr:rectangle(a.x - start_x, a.y - start_y, a.width, a.height)
@@ -205,71 +282,14 @@ function module.start(c, exit_keys)
             end
         end
 
-        if #tablist > 0 then
-            local a = areas[active_area]
-            local pl = lgi.Pango.Layout.create(cr)
-            pl:set_font_description(tablist_font_desc)
-
-            local vpadding = dpi(10)
-            local list_height = vpadding
-            local list_width = 2 * vpadding
-            local exts = {}
-
-            for index, tc in ipairs(tablist) do
-                local label = tc.name or "<unnamed>"
-                pl:set_text(label)
-                local w, h
-                w, h = pl:get_size()
-                w = w / lgi.Pango.SCALE
-                h = h / lgi.Pango.SCALE
-                local ext = { width = w, height = h, x_bearing = 0, y_bearing = 0 }
-                exts[#exts + 1] = ext
-                list_height = list_height + ext.height + vpadding
-                list_width = max(list_width, w + 2 * vpadding)
-            end
-
-            local x_offset = a.x + a.width / 2 - start_x
-            local y_offset = a.y + a.height / 2 - list_height / 2 + vpadding - start_y
-
-            -- cr:rectangle(a.x - start_x, y_offset - vpadding - start_y, a.width, list_height)
-            -- cover the entire area
-            cr:rectangle(a.x - start_x, a.y - start_y, a.width, a.height)
-            cr:set_source(fill_color)
-            cr:fill()
-
-            cr:rectangle(a.x + (a.width - list_width) / 2 - start_x, a.y + (a.height - list_height) / 2 - start_y, list_width, list_height)
-            cr:set_source(box_bg)
-            cr:fill()
-
-            for index, tc in ipairs(tablist) do
-                local label = tc.name or "<unnamed>"
-                local ext = exts[index]
-                if index == tablist_index then
-                    cr:rectangle(x_offset - ext.width / 2 - vpadding / 2, y_offset - vpadding / 2, ext.width + vpadding, ext.height + vpadding)
-                    cr:set_source(fill_color_hl)
-                    cr:fill()
-                    pl:set_text(label)
-                    cr:move_to(x_offset - ext.width / 2 - ext.x_bearing, y_offset - ext.y_bearing)
-                    cr:set_source(font_color_hl)
-                    cr:show_layout(pl)
-                else
-                    pl:set_text(label)
-                    cr:move_to(x_offset - ext.width / 2 - ext.x_bearing, y_offset - ext.y_bearing)
-                    cr:set_source(font_color)
-                    cr:show_layout(pl)
-                end
-
-                y_offset = y_offset + ext.height + vpadding
-            end
-        end
-
         -- show the traverse point
-        cr:rectangle(traverse_x - start_x - traverse_radius, traverse_y - start_y - traverse_radius, traverse_radius * 2, traverse_radius * 2)
-        cr:set_source_rgba(1, 1, 1, 1)
-        cr:fill()
+        -- cr:rectangle(traverse_x - start_x - traverse_radius, traverse_y - start_y - traverse_radius, traverse_radius * 2, traverse_radius * 2)
+        -- cr:set_source_rgba(1, 1, 1, 1)
+        -- cr:fill()
     end
 
     infobox.bgimage = draw_info
+    infotabbox.bgimage = draw_tab_info
 
     local key_translate_tab = {
         ["w"] = "Up",
@@ -287,6 +307,7 @@ function module.start(c, exit_keys)
             capi.client.emit_signal("focus", capi.client.focus)
         end
         infobox.visible = false
+        infotabbox.visible = false
         awful.keygrabber.stop(kg)
     end
 
@@ -320,6 +341,7 @@ function module.start(c, exit_keys)
                 c:raise()
 
                 infobox.bgimage = draw_info
+                infotabbox.bgimage = draw_tab_info
             end
         elseif key == "Up" or key == "Down" or key == "Left" or key == "Right" then
             local current_area = selected_area()
@@ -491,6 +513,7 @@ function module.start(c, exit_keys)
                 end
 
                 infobox.bgimage = draw_info
+                infotabbox.bgimage = draw_tab_info
             end
         elseif (key == "q" or key == "Prior") then
             local current_area = selected_area()
@@ -516,6 +539,7 @@ function module.start(c, exit_keys)
             end
 
             infobox.bgimage = draw_info
+            infotabbox.bgimage = draw_tab_info
         elseif (key =="e" or key == "Next") then
             local current_area = selected_area()
             if #parent_stack <= 1 or parent_stack[#parent_stack] ~= current_area then
@@ -536,6 +560,7 @@ function module.start(c, exit_keys)
             end
 
             infobox.bgimage = draw_info
+            infotabbox.bgimage = draw_tab_info
         elseif key == "/" then
             local current_area = selected_area()
             local original_cmd = machi.engine.areas_to_command(areas, true, current_area)
