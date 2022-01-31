@@ -87,13 +87,12 @@ function module.start(c, exit_keys)
             screen = screen,
             x = screen.workarea.x,
             y = screen.workarea.y,
-            width = screen.workarea.width,
-            height = screen.workarea.height,
+            width = 1, -- screen.workarea.width,
+            height = 1, --screen.workarea.height,
             bg = "#ffffff00",
             opacity = 1,
             ontop = false,
             type = "normal",
-            visible = true,
     })
     local infotabbox = wibox({
             screen = screen,
@@ -292,6 +291,14 @@ function module.start(c, exit_keys)
                 cr:reset_clip()
             end
         end
+
+            if infobox.width ~= screen.workarea.width or infobox.height ~= screen.workarea.height then
+                gtimer.delayed_call(function ()
+                    infobox.width = screen.workarea.width
+                    infobox.height = screen.workarea.height
+                    infobox.visible = true
+                end)
+            end
 
         -- show the traverse point
         -- cr:rectangle(traverse_x - start_x - traverse_radius, traverse_y - start_y - traverse_radius, traverse_radius * 2, traverse_radius * 2)
