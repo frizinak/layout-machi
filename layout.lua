@@ -41,6 +41,39 @@ awful.mouse.resize.add_enter_callback(
         c.full_height_before_move = c.height + c.border_width * 2
     end, 'mouse.move')
 
+--- find the best unique (read empty) area for the area-like object
+--- unless all spots are taken.
+-- @param c       area-like object - table with properties x, y, width, and height
+-- @param areas   array of area objects
+-- @param uniq    array that will keep track of matched (read: non empty) areas
+-- @return the index of the best area
+local function find_uniq_area(c, areas, uniq)
+    local choice = 1
+    local choice_value = nil
+
+    local room = false
+    for i, a in ipairs(areas) do
+        if not uniq[i] then
+            room = true
+            break
+        end
+    end
+
+    for i, a in ipairs(areas) do
+        if a.habitable and (not room or (room and not uniq[i])) then
+            local x_cap = max(0, min(c.x + c.width, a.x + a.width) - max(c.x, a.x))
+            local y_cap = max(0, min(c.y + c.height, a.y + a.height) - max(c.y, a.y))
+            local cap = x_cap * y_cap
+            if choice_value == nil or choice_value < cap then
+                choice = i
+                choice_value = cap
+            end
+        end
+    end
+    uniq[choice] = true
+    return choice
+end
+
 --- find the best area for the area-like object
 -- @param c       area-like object - table with properties x, y, width, and height
 -- @param areas   array of area objects
@@ -270,6 +303,7 @@ function module.create(args_or_name, editor, default_cmd)
             end
         end
 
+        local empty_areas = {}
         for i, c in ipairs(cls) do
             if c.floating or c.immobilized then
                 log(DEBUG, "Ignore client " .. tostring(c))
@@ -350,7 +384,7 @@ function module.create(args_or_name, editor, default_cmd)
                         skip = true
                     else
                         log(DEBUG, "Compute areas for " .. (c.name or ("<untitled:" .. tostring(c) .. ">")))
-                        local area = find_area(geo, areas)
+                        local area = find_uniq_area(geo, areas, empty_areas)
                         cd[c].area, cd[c].lu, cd[c].rd = area, nil, nil
                         place_client_in_area(c, area)
                     end
