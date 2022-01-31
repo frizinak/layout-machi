@@ -99,8 +99,8 @@ function module.start(c, exit_keys)
             screen = screen,
             x = screen.workarea.x,
             y = screen.workarea.y,
-            width = screen.workarea.width,
-            height = screen.workarea.height,
+            width = 1,
+            height = 1,
             bg = "#ffffff00",
             ontop = true,
             type = "normal",
@@ -196,6 +196,7 @@ function module.start(c, exit_keys)
     local function draw_tab_info(context, cr, width, height)
         maintain_tablist()
 
+        local wi = { x = 0, y = 0, w = 1, h = 1 }
         local ext
         local active_area = selected_area()
         if #tablist > 0 then
@@ -225,10 +226,10 @@ function module.start(c, exit_keys)
             end
 
             local y_offset = vborder
-            infotabbox.x = a.x + (a.width - list_width) / 2
-            infotabbox.y = a.y + (a.height - list_height) / 2
-            infotabbox.width = list_width
-            infotabbox.height = list_height
+            wi.x = a.x + (a.width - list_width) / 2
+            wi.y = a.y + (a.height - list_height) / 2
+            wi.w = list_width
+            wi.h = list_height
 
             cr:rectangle(0, 0, list_width, list_height)
             cr:set_source(border_color_hl)
@@ -254,6 +255,15 @@ function module.start(c, exit_keys)
 
                 y_offset = y_offset + ext.height + vpadding
             end
+        end
+
+        if infotabbox.x ~= wi.x or infotabbox.y ~= wi.y or
+            infotabbox.width ~= wi.w or infotabbox.height ~= wi.h
+        then
+            infotabbox.x = wi.x
+            infotabbox.y = wi.y
+            infotabbox.width = wi.w
+            infotabbox.height = wi.h
         end
     end
 
