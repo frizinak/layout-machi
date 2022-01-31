@@ -292,10 +292,14 @@ function module.start(c, exit_keys)
     infotabbox.bgimage = draw_tab_info
 
     local key_translate_tab = {
-        ["w"] = "Up",
-        ["a"] = "Left",
-        ["s"] = "Down",
-        ["d"] = "Right",
+        ["k"] = "Up",
+        ["h"] = "Left",
+        ["j"] = "Down",
+        ["l"] = "Right",
+        ["K"] = "Up",
+        ["H"] = "Left",
+        ["J"] = "Down",
+        ["L"] = "Right",
     }
 
     awful.client.focus.history.disable_tracking()
