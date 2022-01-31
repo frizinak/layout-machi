@@ -11,12 +11,15 @@ Will try to make atomic commits you can easily rebase on upstream.
 - hjkl (instead of wasd / arrow keys)
 - in switching mode hjkl shifts focus, super+hjkl moves.
 - prevent overlapping windows as much as possible (called tabs in source)
+- don't require switching the switching UI (super+/ by default) for simple window operations like swap/tab-cycle/...
 
 ## Planned
 
 - prevent overlapping more or create simple keybind and a visual indication
-- don't require switching mode (super+/ by default) for simple window operations like swap/tab-cycle/...
 
+## Examples
+
+see snippets.lua
 
 Original readme:
 
