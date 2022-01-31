@@ -340,10 +340,12 @@ function module.start(c, exit_keys)
         maintain_tablist()
         assert(tablist ~= nil)
 
+        local super = false
         local shift = false
         local ctrl = false
         for i, m in ipairs(mod) do
-            if m == "Shift" then shift = true
+            if m == "Mod4" then super = true
+            elseif m == "Shift" then shift = true
             elseif m == "Control" then ctrl = true
             end
         end
@@ -361,8 +363,8 @@ function module.start(c, exit_keys)
         elseif key == "Up" or key == "Down" or key == "Left" or key == "Right" then
             local current_area = selected_area()
 
-            if c and (shift or ctrl) then
-                if shift then
+            if c and (super or shift or ctrl) then
+                if super or shift then
                     if current_area == nil or
                         areas[current_area].x ~= c.x or
                         areas[current_area].y ~= c.y
@@ -491,7 +493,7 @@ function module.start(c, exit_keys)
                     c:emit_signal("request::activate", "mouse.move", {raise=false})
                     c:raise()
                     awful.layout.arrange(screen)
-                elseif c and shift then
+                elseif c and (shift or super) then
                     -- move the window
                     local in_draft = cd[c].draft
                     if cd[c].draft ~= nil then
