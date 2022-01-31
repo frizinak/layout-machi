@@ -101,6 +101,7 @@ function module.start(c, exit_keys)
             y = screen.workarea.y,
             width = screen.workarea.width,
             height = screen.workarea.height,
+            bg = "#ffffff00",
             ontop = true,
             type = "normal",
             visible = true,
