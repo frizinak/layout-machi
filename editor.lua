@@ -130,8 +130,10 @@ function module.create(data)
                 log(ERROR, "cannot save history to " .. data.history_file)
             else
                 for i = max(1, #data.cmds - data.history_save_max + 1), #data.cmds do
-                    log(DEBUG, "save cmd " .. data.cmds[i])
-                    file:write(data.cmds[i] .. "\n")
+                    if data.cmds[i] ~= "." then
+                        log(DEBUG, "save cmd " .. data.cmds[i])
+                        file:write(data.cmds[i] .. "\n")
+                    end
                 end
                 for name, cmd in pairs(data.last_cmd) do
                     log(DEBUG, "save last cmd " .. cmd .. " for " .. name)
