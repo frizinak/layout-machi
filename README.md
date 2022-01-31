@@ -19,9 +19,13 @@ Will try to make atomic commits you can easily rebase on upstream.
 
 ## Examples
 
-see snippets.lua
+see [snippets.lua](https://github.com/frizinak/layout-machi/blob/master/snippets.lua)
 
 Original readme:
+
+
+
+
 
 # ![machi icon](icon.png) layout-machi
 
