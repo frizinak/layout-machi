@@ -462,6 +462,28 @@ function module.create(args_or_name, editor, default_cmd)
                 arrange_nested_layout(area, {})
             end
         end
+
+        local b = require("beautiful")
+        local style_tabbed = b.machi_style_tabbed
+        if style_tabbed == nil then
+            return
+        end
+        local area_client_count = {}
+        for _, oc in ipairs(screen.tiled_clients) do
+            local cd = instance.client_data[oc]
+            if cd and cd.placement and cd.area then
+                if area_client_count[cd.area] == nil then
+                    area_client_count[cd.area] = {}
+                end
+                table.insert(area_client_count[cd.area], oc)
+            end
+        end
+        for i, v in pairs(area_client_count) do
+            local tabbed = #v > 1
+            for _, c in pairs(v) do
+                style_tabbed(c, tabbed)
+            end
+        end
     end
 
     local function resize_handler (c, context, h)
