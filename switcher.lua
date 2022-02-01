@@ -295,6 +295,55 @@ function module.start(c, exit_keys)
         end
     end
 
+    local largest_area = function(areas)
+        local largest = nil
+        local size = 0
+        for i, a in ipairs(areas) do
+            local s = a.width * a.height
+            if a.habitable and (largest == nil or s > size) then
+                largest = i
+                size = s
+            end
+        end
+
+        return largest
+    end
+
+    -- area is the index in areas, should be made consistent after el big refactor
+    -- draft is reset
+    local move_client = function(c, area)
+        machi.layout.set_geometry(c, areas[area], areas[area], 0, c.border_width)
+        cd[c].lu = nil
+        cd[c].rd = nil
+        cd[c].area = area
+    end
+
+    local master_swap = function(all)
+        if c == nil or c.floating then
+            return
+        end
+
+        local src = selected_area()
+        local dst = largest_area(areas)
+        if dst == nil or dst == src then
+            return
+        end
+        local srclist = get_tablist(src)
+        local dstlist = get_tablist(dst)
+
+        for i, c in ipairs(dstlist) do
+            if all or i == 1 then
+                move_client(c, src)
+            end
+        end
+        for i, c in ipairs(srclist) do
+            if all or i == 1 then
+                move_client(c, dst)
+            end
+        end
+        awful.layout.arrange(screen)
+    end
+
     local traverse_clients = function(dir)
         dir = string.lower(dir)
         local current_area = selected_area()
@@ -733,7 +782,12 @@ function module.start(c, exit_keys)
     return {
         ui = ui,
         tab = tab,
-        -- returns true if a client was found
+        --- swap current window with 'master' or moves it to the master position if it's unoccupied (i.e.: largest area/client)
+        -- @param all      swap/move all clients in both areas, not just the top ones.
+        master_swap = master_swap,
+        --- focus client by direction
+        -- @param dir      direction (up|right|down|left)
+        -- @returns true if a client was found
         traverse_clients = traverse_clients,
         traverse_areas = traverse_areas,
         move = function(dir) traverse_areas(dir, true, false) end,
