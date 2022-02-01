@@ -16,7 +16,7 @@ Will try to make atomic commits you can easily rebase on upstream.
 
 ## Planned
 
-- nothing atm
+- rewrite/refactor: too much duplicate code, no api layer, functions with side effects, ...
 
 ## Examples
 
@@ -53,6 +53,38 @@ Will try to make atomic commits you can easily rebase on upstream.
     awful.key({modkey, "Shift"}, "j", function() machi.switcher.start(client.focus).move("down") end),
     awful.key({modkey, "Shift"}, "k", function() machi.switcher.start(client.focus).move("up") end),
     awful.key({modkey, "Shift"}, "l", function() machi.switcher.start(client.focus).move("right") end),
+
+---
+--- Focus by direction
+---
+    awful.key({modkey}, "h", function() machi.switcher.start(client.focus).focus("left") end),
+    awful.key({modkey}, "j", function() machi.switcher.start(client.focus).focus("down") end),
+    awful.key({modkey}, "k", function() machi.switcher.start(client.focus).focus("up") end),
+    awful.key({modkey}, "l", function() machi.switcher.start(client.focus).focus("right") end),
+
+---
+--- Focus by direction (what I use)
+---
+
+    function focus(dir)
+        -- focus on the current screen (floating windows are ignored)
+        if machi.switcher.start(client.focus).focus(dir) then
+            return
+        end
+        -- we're at the edge of the screen
+        -- might focus a floating window
+        -- or switch to a screen in the given direction
+        awful.client.focus.global_bydirection(dir)
+        local c = client.focus
+        local screen = awful.screen.focused()
+        if c ~= nil and c.screen ~= screen then
+            awful.screen.focus_bydirection(dir)
+        end
+    end
+    awful.key({modkey}, "h", function() focus("left") end),
+    awful.key({modkey}, "j", function() focus("down") end),
+    awful.key({modkey}, "k", function() focus("up") end),
+    awful.key({modkey}, "l", function() focus("right") end),
 
 --
 -- Cycle predefined layouts
