@@ -7,22 +7,49 @@ Will try to make atomic commits you can easily rebase on upstream.
 
 ## Changes
 
-- better switching ui, no transparency => no picom required
-- hjkl (instead of wasd / arrow keys)
-- in switching mode hjkl shifts focus, super+hjkl moves.
+### switcher
+
+- hjkl shifts focus, super+hjkl moves (previously wasd/arrow keys)
 - prevent overlapping windows as much as possible (called tabs in source)
-- visual indication of overlapping clients
-- don't require switching with the switching UI (super+/ by default) for simple window operations like swap/tab-cycle/...
+- don't require switching with the switching UI (super+/ by default) for simple window operations like swap/tab-cycle/... (see examples)
+- ui tweaks
+  - no transparency => no picom required
+
+### editor
+
+- cursor => editing of command
+- ctrl-c => clear command
+- ui tweaks
+  - contrasting bg
+
+### engine
+
+- nothing
+
+### layout
+
+- prevent overlapping when changing layouts if new layout has less areas
+- ui tweaks
+  - overlapping client callback (so you can theme them how you want) (see examples)
 
 ## Planned
 
+- editor: perhaps do same changes as done in switcher but seems hardly worth it. I don't need to seem my windows while updating the layout
 - rewrite/refactor: too much duplicate code, no api layer, functions with side effects, ...
+
+## Demo
+
+https://user-images.githubusercontent.com/823696/152007355-9a87b606-fff9-4adf-b4b2-125075358d20.mp4
+
 
 ## Examples
 
 ```lua
 ---
 --- Style overlapping clients
+--- I personal add a titlebar to the bottom of each client and change that color
+--- since it's more robust than borders and allows settings focus/normal color.
+--- Which you can't really do with borders (cleanly)
 ---
     local theme = {
         machi_style_tabbed = function (client, tabbed)
@@ -42,12 +69,12 @@ Will try to make atomic commits you can easily rebase on upstream.
     awful.key({modkey}, "/", function () machi.switcher.start(client.focus).ui() end),
 
 ---
---- Tab through overlapping clients
+--- Tab through overlapping clients (no switcher ui needed)
 ---
     awful.key({modkey}, "Tab", function () machi.switcher.start(client.focus).tab() end),
 
 ---
---- Move by direction
+--- Move by direction (no switcher ui needed)
 ---
     awful.key({modkey, "Shift"}, "h", function() machi.switcher.start(client.focus).move("left") end),
     awful.key({modkey, "Shift"}, "j", function() machi.switcher.start(client.focus).move("down") end),
@@ -55,7 +82,7 @@ Will try to make atomic commits you can easily rebase on upstream.
     awful.key({modkey, "Shift"}, "l", function() machi.switcher.start(client.focus).move("right") end),
 
 ---
---- Focus by direction
+--- Focus by direction (no switcher ui needed)
 ---
     awful.key({modkey}, "h", function() machi.switcher.start(client.focus).focus("left") end),
     awful.key({modkey}, "j", function() machi.switcher.start(client.focus).focus("down") end),
