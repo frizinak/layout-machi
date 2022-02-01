@@ -76,7 +76,7 @@ function module.start(c, exit_keys)
     local start_x = screen.workarea.x
     local start_y = screen.workarea.y
 
-    if (c ~= nil and c.floating) or layout.machi_get_instance_data == nil then return end
+    if layout.machi_get_instance_data == nil then return end
 
     local cd, td, areas, _new_placement_cb = layout.machi_get_instance_data(screen, screen.selected_tag)
     if areas == nil or #areas == 0 then
@@ -128,24 +128,26 @@ function module.start(c, exit_keys)
 
     local parent_stack = {}
 
-    local function maintain_tablist()
-        if tablist == nil then
-            tablist = {}
-
-            local active_area = selected_area()
-            for _, tc in ipairs(screen.tiled_clients) do
-                if not (tc.floating or tc.immobilized)
+    local function get_tablist(area)
+        local list = {}
+        for _, tc in ipairs(screen.tiled_clients) do
+            if not (tc.floating or tc.immobilized)
+            then
+                if areas[area].x <= tc.x + tc.width + tc.border_width * 2 and tc.x <= areas[area].x + areas[area].width and
+                    areas[area].y <= tc.y + tc.height + tc.border_width * 2 and tc.y <= areas[area].y + areas[area].height
                 then
-                    if areas[active_area].x <= tc.x + tc.width + tc.border_width * 2 and tc.x <= areas[active_area].x + areas[active_area].width and
-                        areas[active_area].y <= tc.y + tc.height + tc.border_width * 2 and tc.y <= areas[active_area].y + areas[active_area].height
-                    then
-                        tablist[#tablist + 1] = tc
-                    end
+                    list[#list + 1] = tc
                 end
             end
+        end
 
+        return list
+    end
+
+    local function maintain_tablist()
+        if tablist == nil then
+            tablist = get_tablist(selected_area())
             tablist_index = 1
-
         else
 
             local j = 0
@@ -270,13 +272,13 @@ function module.start(c, exit_keys)
             end
         end
 
-            if infobox.width ~= screen.workarea.width or infobox.height ~= screen.workarea.height then
-                gtimer.delayed_call(function ()
-                    infobox.width = screen.workarea.width
-                    infobox.height = screen.workarea.height
-                    infobox.visible = true
-                end)
-            end
+        if infobox.width ~= screen.workarea.width or infobox.height ~= screen.workarea.height then
+            gtimer.delayed_call(function ()
+                infobox.width = screen.workarea.width
+                infobox.height = screen.workarea.height
+                infobox.visible = true
+            end)
+        end
 
         -- show the traverse point
         -- cr:rectangle(traverse_x - start_x - traverse_radius, traverse_y - start_y - traverse_radius, traverse_radius * 2, traverse_radius * 2)
@@ -293,8 +295,85 @@ function module.start(c, exit_keys)
         end
     end
 
+    local traverse_clients = function(dir)
+        dir = string.lower(dir)
+        local current_area = selected_area()
+        local current = areas[current_area]
+        if current == nil then
+            return false
+        end
 
-    local direction = function (dir, move, draft)
+        local candidates = {}
+        for i, a in ipairs(areas) do
+            local data = {i = i, a = a}
+            if not a.habitable or i == current_area then
+            elseif dir == "up" and
+                a.y + a.height < current.y and
+                #get_tablist(i) ~= 0 then
+                table.insert(candidates, data)
+            elseif dir == "down" and
+                a.y > current.y + current.height and
+                #get_tablist(i) ~= 0 then
+                table.insert(candidates, data)
+            elseif dir == "left" and
+                a.x + a.width < current.x and
+                #get_tablist(i) ~= 0 then
+                table.insert(candidates, data)
+            elseif dir == "right" and
+                a.x > current.x + current.width and
+                #get_tablist(i) ~= 0 then
+                table.insert(candidates, data)
+            end
+        end
+
+        local best_area
+        local score
+        for i, d in ipairs(candidates) do
+            local a = d.a
+            local dist, overlap
+
+            if dir == "up" or dir == "down" then
+                overlap = min(current.x+current.width, a.x+a.width) - max(current.x, a.x)
+            elseif dir == "left" or dir == "right" then
+                overlap = min(current.y+current.height, a.y+a.height) - max(current.y, a.y)
+            end
+
+            if dir == "up" then
+                dist = current.y - a.y - a.height
+            elseif dir == "down" then
+                dist = a.y - current. y - current.height
+            elseif dir == "left" then
+                dist = current.x - a.x - a.width
+            elseif dir == "right" then
+                dist = a.x - current.x - current.width
+            end
+
+            -- TODO this is probably not optimal
+            local s = overlap - dist
+            if score == nil or s > score then
+                best_area = d.i
+                score = s
+            end
+        end
+
+        if best_area == nil then
+            if #candidates == 0 then
+                return false
+            end
+            best_area = candidates[1].i
+        end
+
+        set_selected_area(best_area)
+        local tablist = get_tablist(best_area)
+        if #tablist == 0 or tablist[1] == c then
+            return false
+        end
+        c = tablist[1]
+        capi.client.focus = c
+        return true
+    end
+
+    local traverse_areas = function(dir, move, draft)
         dir = string.lower(dir)
         local current_area = selected_area()
 
@@ -516,7 +595,7 @@ function module.start(c, exit_keys)
         if key == "Tab" then
             tab()
         elseif key == "Up" or key == "Down" or key == "Left" or key == "Right" then
-            direction(key, shift or super, ctrl)
+            traverse_areas(key, shift or super, ctrl)
         elseif (key == "q" or key == "Prior") then
             local current_area = selected_area()
             if areas[current_area].parent_id == nil then
@@ -654,9 +733,12 @@ function module.start(c, exit_keys)
     return {
         ui = ui,
         tab = tab,
-        direction = direction,
-        move = function(dir) direction(dir, true, false) end,
-        focus = function(dir) direction(dir, false, false) end,
+        -- returns true if a client was found
+        traverse_clients = traverse_clients,
+        traverse_areas = traverse_areas,
+        move = function(dir) traverse_areas(dir, true, false) end,
+        -- like traverse_clients, returns true if a client was found
+        focus = function(dir) return traverse_clients(dir) end,
     }
 end
 
