@@ -364,11 +364,14 @@ function module.create(data)
                 cr:fill()
             end
             local wpad, hpad = dpi(10), dpi(5)
-            local mw, mh = max(w, w_msg) + wpad, max(h, h_msg) + hpad
+            local mw, mh = max(w, w_msg) + wpad, h + hpad
+            if current_msg ~= "" then
+                mh = mh + h_msg + lh
+            end
             if mw < dpi(120) then
                 mw = dpi(120)
             end
-            cr:rectangle(width / 2 - mw / 2, height / 2 - mh / 2, mw, mh)
+            cr:rectangle(width / 2 - mw / 2, height / 2 - (h + hpad) / 2, mw, mh)
             cr:set_source_rgba(0, 0, 0, 1)
             cr:fill()
             local cursor_border = 0
