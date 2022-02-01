@@ -69,6 +69,11 @@ https://user-images.githubusercontent.com/823696/152007355-9a87b606-fff9-4adf-b4
     awful.key({modkey}, "/", function () machi.switcher.start(client.focus).ui() end),
 
 ---
+--- An awful.client.setmaster alternative for machi.
+---
+    awful.key({modkey, "Control"}, "Return", function() machi.switcher.start(client.focus).master_swap(true) end),
+
+---
 --- Tab through overlapping clients (no switcher ui needed)
 ---
     awful.key({modkey}, "Tab", function () machi.switcher.start(client.focus).tab() end),
