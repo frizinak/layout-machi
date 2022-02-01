@@ -474,6 +474,9 @@ function module.create(data)
                             set_cmd(data.cmds[cmd_index])
                             move_cursor(#data.cmds[cmd_index])
                         elseif #open_areas > 0 or pending_op or curpos < #current_cmd then
+                            if key == "." or key == "Return" then
+                                move_cursor(#current_cmd)
+                            end
                             if handle_key(key) then
                                 move_cursor(1)
                             end
