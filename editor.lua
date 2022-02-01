@@ -346,25 +346,6 @@ function module.create(data)
             pl:set_text(current_info_pre..current_info_post)
             local w, h = pl:get_pixel_size()
 
-            local cursor_border = 1
-            local cursor_width = 1
-            cr:rectangle(
-                width / 2 - w / 2 + w0,
-                height / 2 - h / 2,
-                2 * cursor_border + cursor_width,
-                h
-            )
-            cr:set_source_rgba(0, 0, 0, 0.8)
-            cr:fill()
-            cr:rectangle(
-                cursor_border + width / 2 - w / 2 + w0,
-                cursor_border + height / 2 - h / 2,
-                cursor_width,
-                h - 2 * cursor_border
-            )
-            cr:set_source_rgba(1, 1, 1, 0.8)
-            cr:fill()
-
             local pl_msg = lgi.Pango.Layout.create(cr)
             pl_msg:set_font_description(beautiful.get_merged_font(beautiful.font, info_size))
             pl_msg:set_alignment("CENTER")
@@ -381,15 +362,35 @@ function module.create(data)
                 cr:set_source_rgba(1, 1, 1, 1)
                 cr:show_layout(pl)
                 cr:fill()
-                cr:move_to(
-                    width / 2 - ext.width / 2 - ext.x_bearing,
-                    y_offset + height / 2 - ext.height / 2 - ext.y_bearing
-                )
-                cr:set_source_rgba(0, 0, 0, 1)
-                cr:set_line_width(2.0)
-                cr:layout_path(pl)
-                cr:stroke()
             end
+            local wpad, hpad = dpi(10), dpi(5)
+            local mw, mh = max(w, w_msg) + wpad, max(h, h_msg) + hpad
+            if mw < dpi(120) then
+                mw = dpi(120)
+            end
+            cr:rectangle(width / 2 - mw / 2, height / 2 - mh / 2, mw, mh)
+            cr:set_source_rgba(0, 0, 0, 1)
+            cr:fill()
+            local cursor_border = 0
+            local cursor_width = 1
+            if cursor_border >= 0 then
+                cr:rectangle(
+                    width / 2 - w / 2 + w0,
+                    height / 2 - h / 2,
+                    2 * cursor_border + cursor_width,
+                    h
+                )
+                cr:set_source_rgba(0, 0, 0, 0.8)
+                cr:fill()
+            end
+            cr:rectangle(
+                cursor_border + width / 2 - w / 2 + w0,
+                cursor_border + height / 2 - h / 2,
+                cursor_width,
+                h - 2 * cursor_border
+            )
+            cr:set_source_rgba(0, 0, 0, 0.8)
+            cr:fill()
             draw(pl, w, h, 0)
             draw(pl_msg, w_msg, h_msg, h + lh)
         end
