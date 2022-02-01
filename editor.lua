@@ -14,6 +14,10 @@ local WARNING = 1
 local INFO = 0
 local DEBUG = -1
 
+local MOD_CTRL = 1
+local MOD_SHIFT = 2
+local MOD_ALT = 4
+
 local module = {
     log_level = WARNING,
     nested_layouts = {
@@ -437,6 +441,17 @@ function module.create(data)
                     return
                 end
 
+                local modmask = 0
+                for _, m in ipairs(mod) do
+                    if m == "Shift" then
+                        modmask = modmask | MOD_SHIFT
+                    elseif m == "Control" then
+                        modmask = modmask | MOD_CTRL
+                    elseif m == "Mod1" then
+                        modmask = modmask | MOD_ALT
+                    end
+                end
+
                 local ok, err = pcall(
                     function ()
                         if key == "Left" then
@@ -483,6 +498,9 @@ function module.create(data)
                             log(DEBUG, "restore history #" .. tostring(cmd_index) .. ":" .. data.cmds[cmd_index])
                             set_cmd(data.cmds[cmd_index])
                             move_cursor(#data.cmds[cmd_index])
+                        elseif key == "c" and modmask&MOD_CTRL ~= 0 then
+                            set_cmd("")
+                            move_cursor(#current_cmd)
                         elseif #open_areas > 0 or pending_op or curpos < #current_cmd then
                             if key == "." or key == "Return" then
                                 move_cursor(#current_cmd)
@@ -492,16 +510,9 @@ function module.create(data)
                             end
                         else
                             if key == "Return" then
-                                local alt = false
-                                for _, m in ipairs(mod) do
-                                    if m == "Shift" then
-                                        alt = true
-                                        break
-                                    end
-                                end
-
+                                local shift = modmask&MOD_SHIFT > 0
                                 local instance_name, persistent = layout.machi_get_instance_info(tag)
-                                if not alt and persistent then
+                                if not shift and persistent then
                                     table.remove(data.cmds, #data.cmds)
                                     add_cmd(instance_name, get_final_cmd())
                                     current_msg = "Saved!"
