@@ -392,7 +392,7 @@ function module.create(data)
                 cursor_width,
                 h - 2 * cursor_border
             )
-            cr:set_source_rgba(0, 0, 0, 0.8)
+            cr:set_source_rgba(1, 1, 1, 1)
             cr:fill()
             draw(pl, w, h, 0)
             draw(pl_msg, w_msg, h_msg, h + lh)
@@ -422,7 +422,13 @@ function module.create(data)
 
         log(DEBUG, "interactive layout editing starts")
 
-        set_cmd("")
+        local _, _, areas = layout.machi_get_instance_data(screen, tag)
+        current_cmd = machi_engine.areas_to_command(areas)
+        if current_cmd == "." then
+            current_cmd = ""
+        end
+        set_cmd(current_cmd)
+        move_cursor(#current_cmd)
         refresh()
 
         kg = awful.keygrabber.run(
