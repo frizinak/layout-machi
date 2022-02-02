@@ -24,7 +24,8 @@ Will try to make atomic commits you can easily rebase on upstream.
 
 ### engine
 
-- nothing
+- ui tweaks
+  - highlight active area properly
 
 ### layout
 
