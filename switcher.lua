@@ -302,9 +302,25 @@ function module.start(c, exit_keys)
     -- draft is reset
     local move_client = function(c, area)
         machi.layout.set_geometry(c, areas[area], areas[area], 0, c.border_width)
+        if cd[c] == nil then
+            return
+        end
         cd[c].lu = nil
         cd[c].rd = nil
         cd[c].area = area
+    end
+
+    local master_add = function()
+        if c == nil or c.floating then
+            return
+        end
+
+        local dst = largest_area(areas)
+        if dst == nil then
+            return
+        end
+        move_client(c, dst)
+        awful.layout.arrange(screen)
     end
 
     local master_swap = function(all)
@@ -768,6 +784,7 @@ function module.start(c, exit_keys)
     return {
         ui = ui,
         tab = tab,
+        master_add = master_add,
         --- swap current window with 'master' or moves it to the master position if it's unoccupied (i.e.: largest area/client)
         -- @param all      swap/move all clients in both areas, not just the top ones.
         master_swap = master_swap,
