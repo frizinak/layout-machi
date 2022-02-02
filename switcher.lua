@@ -85,7 +85,6 @@ function module.start(c, exit_keys)
 
     local infobox, infotabbox
     local tablist = nil
-    local tablist_index = nil
 
     local traverse_x, traverse_y
     if c then
@@ -145,32 +144,11 @@ function module.start(c, exit_keys)
     end
 
     local function maintain_tablist()
-        if tablist == nil then
-            tablist = get_tablist(selected_area())
-            tablist_index = 1
-        else
-
-            local j = 0
-            for i = 1, #tablist do
-                if tablist[i].valid then
-                    j = j + 1
-                    tablist[j] = tablist[i]
-                elseif i <= tablist_index and tablist_index > 0 then
-                    tablist_index = tablist_index - 1
-                end
-            end
-
-            for i = #tablist, j + 1, -1 do
-                table.remove(tablist, i)
-            end
-        end
-
-        if c and not c.valid then c = nil end
-        if c == nil and #tablist > 0 then
-            c = tablist[tablist_index]
+        tablist = get_tablist(selected_area())
+        if #tablist ~= 0 then
+            c = tablist[1]
         end
     end
-
 
     local function draw_tab_info(context, cr, width, height)
         maintain_tablist()
@@ -191,7 +169,18 @@ function module.start(c, exit_keys)
             local list_width = 2 * hpadding + 2 * hborder
             local exts = {}
 
-            for index, tc in ipairs(tablist) do
+            local tl = {}
+            local hw = math.floor((#tablist-1)/2)
+            for i = hw+1,2,-1 do
+                table.insert(tl, tablist[i])
+            end
+            table.insert(tl, tablist[1])
+            local active = #tl
+            for i = #tablist,hw+2,-1 do
+                table.insert(tl, tablist[i])
+            end
+
+            for index, tc in ipairs(tl) do
                 local label = tc.name or "<unnamed>"
                 pl:set_text(label)
                 local w, h
@@ -214,10 +203,10 @@ function module.start(c, exit_keys)
             cr:set_source(border_color_hl)
             cr:fill()
 
-            for index, tc in ipairs(tablist) do
+            for index, tc in ipairs(tl) do
                 local label = tc.name or "<unnamed>"
                 local ext = exts[index]
-                if index == tablist_index then
+                if index == active then
                     cr:rectangle(hborder, y_offset, list_width - 2 * hborder, ext.height + vpadding)
                     cr:set_source(fill_color_hl)
                     cr:fill()
@@ -594,11 +583,10 @@ function module.start(c, exit_keys)
         end
     end
 
-    local tab = function ()
+    local tab = function()
         maintain_tablist()
-        if #tablist > 0 then
-            tablist_index = tablist_index % #tablist + 1
-            c = tablist[tablist_index]
+        if #tablist > 1 then
+            c = tablist[#tablist]
             c:emit_signal("request::activate", "mouse.move", {raise=false})
             c:raise()
 
@@ -651,7 +639,6 @@ function module.start(c, exit_keys)
                 return
             end
 
-            tablist = nil
             set_selected_area(areas[current_area].parent_id)
             if #parent_stack == 0 or
                 parent_stack[#parent_stack] ~= current_area then
@@ -675,7 +662,6 @@ function module.start(c, exit_keys)
                 return
             end
 
-            tablist = nil
             set_selected_area(parent_stack[#parent_stack - 1])
             table.remove(parent_stack, #parent_stack)
             current_area = parent_stack[#parent_stack]
