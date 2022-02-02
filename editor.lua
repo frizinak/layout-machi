@@ -430,9 +430,12 @@ function module.create(data)
         log(DEBUG, "interactive layout editing starts")
 
         local _, _, areas = layout.machi_get_instance_data(screen, tag)
-        current_cmd = machi_engine.areas_to_command(areas)
-        if current_cmd == "." then
-            current_cmd = ""
+        current_cmd = ""
+        if not embed_args then
+            current_cmd = machi_engine.areas_to_command(areas)
+            if current_cmd == "." then
+                current_cmd = ""
+            end
         end
         set_cmd(current_cmd)
         move_cursor(#current_cmd)
