@@ -163,6 +163,9 @@ function module.create(data)
         local open_color = with_alpha(
             gears.color(beautiful.machi_editor_open_color or beautiful.bg_normal),
             beautiful.machi_editor_open_opacity or 0.5)
+        local done_color = with_alpha(
+            gears.color(beautiful.machi_editor_done_color or beautiful.bg_focus),
+            beautiful.machi_editor_done_opacity or 0.5)
         local closed_color = open_color
 
         if to_save == nil then
@@ -297,7 +300,7 @@ function module.create(data)
                     cr:rectangle(sa.x - start_x, sa.y - start_y, sa.width, sa.height)
                     cr:clip()
                     if to_highlight then
-                        cr:set_source(active_color)
+                        cr:set_source(done_color)
                     else
                         cr:set_source(closed_color)
                     end
