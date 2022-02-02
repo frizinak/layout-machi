@@ -21,11 +21,11 @@ Will try to make atomic commits you can easily rebase on upstream.
 - ctrl-c => clear command
 - ui tweaks
   - contrasting bg
+  - highlight active area properly
 
 ### engine
 
-- ui tweaks
-  - highlight active area properly
+- nothing
 
 ### layout
 
