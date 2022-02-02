@@ -49,7 +49,7 @@ https://user-images.githubusercontent.com/823696/152007355-9a87b606-fff9-4adf-b4
 ---
 --- Style overlapping clients
 --- I personal add a titlebar to the bottom of each client and change that color
---- since it's more robust than borders and allows settings focus/normal color.
+--- since it's more robust than borders and allows setting focus/normal color.
 --- Which you can't really do with borders (cleanly)
 ---
     local theme = {
