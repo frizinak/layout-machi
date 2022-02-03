@@ -803,6 +803,10 @@ local function areas_to_command(areas, to_embed, root_area)
         local handled_options = {}
         local a = areas[area_id]
 
+        if a == nil then
+            return ""
+        end
+
         if a.hole then
             return "|"
         end
