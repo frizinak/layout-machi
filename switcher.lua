@@ -4,7 +4,8 @@ local machi = {
 }
 
 local capi = {
-    client = client
+    client = client,
+    screen = screen,
 }
 
 local beautiful = require("beautiful")
@@ -298,9 +299,33 @@ function module.start(c, exit_keys)
         return largest
     end
 
+    local snap_area = function(x, y, width, height)
+        local bestD, d
+        local best
+        local dist = function(x0, y0, x1, y1)
+            local a, b = x0-x1, y0-y1
+            return math.sqrt(a*a+b*b)
+        end
+        for i, a in ipairs(areas) do
+            d = dist(a.x, a.y, x, y) +
+                dist(a.x+a.width, a.y+a.height, x+width, y+height)
+            if bestD == nil or d < bestD then
+                bestD = d
+                best = i
+            end
+        end
+
+        return best
+    end
+
+
     -- area is the index in areas, should be made consistent after el big refactor
     -- draft is reset
-    local move_client = function(c, area)
+    local move_client
+    move_client = function(c, area)
+        if area == nil or areas[area] == nil or c == nil or not c.valid or c.floating then
+            return
+        end
         machi.layout.set_geometry(c, areas[area], areas[area], 0, c.border_width)
         if cd[c] == nil then
             return
@@ -308,6 +333,19 @@ function module.start(c, exit_keys)
         cd[c].lu = nil
         cd[c].rd = nil
         cd[c].area = area
+    end
+
+    local snap_client = function()
+        if c == nil then
+            return
+        end
+        a = snap_area(c.x, c.y, c.width, c.height)
+        if a == nil then
+            return false
+        end
+
+        move_client(c, a)
+        return true
     end
 
     local master_add = function()
@@ -784,6 +822,7 @@ function module.start(c, exit_keys)
     return {
         ui = ui,
         tab = tab,
+        snap_client = snap_client,
         master_add = master_add,
         --- swap current window with 'master' or moves it to the master position if it's unoccupied (i.e.: largest area/client)
         -- @param all      swap/move all clients in both areas, not just the top ones.
