@@ -14,10 +14,6 @@ local WARNING = 1
 local INFO = 0
 local DEBUG = -1
 
-local MOD_CTRL = 1
-local MOD_SHIFT = 2
-local MOD_ALT = 4
-
 local module = {
     log_level = WARNING,
     nested_layouts = {
@@ -211,7 +207,6 @@ function module.create(data)
         local open_areas
         local pending_op
         local current_cmd
-        local current_input
         local to_exit
         local to_apply
 
@@ -225,15 +220,7 @@ function module.create(data)
         local current_info_post = ""
         local current_msg
 
-        local function set_cmd(cmd)
-            current_input = cmd
-            current_info_pre = current_input:sub(0, curpos)
-            current_info_post =  current_input:sub(curpos+1, #current_input)
-            if embed_args then
-                current_info_pre = embed_args.cmd_prefix.."["..current_info_pre
-                current_info_post = current_info_post.."]"..embed_args.cmd_suffix
-            end
-
+        local function set_cmd(cmd, arbitrary_input)
             local new_closed_areas, new_open_areas, new_pending_op = machi_engine.areas_from_command(
                 cmd,
                 {
@@ -243,14 +230,22 @@ function module.create(data)
                     height = workarea.height - gap * 2
                 },
                 gap * 2 + data.minimum_size)
-            if new_closed_areas then
-                closed_areas, open_areas, pending_op =
-                    new_closed_areas, new_open_areas, new_pending_op
-                local c = machi_engine.areas_to_command(closed_areas, embed_args) or ""
-                current_cmd = c:sub(1, -2)
+            if new_closed_areas or not arbitrary_input then
+                if new_closed_areas then
+                    closed_areas, open_areas, pending_op =
+                        new_closed_areas, new_open_areas, new_pending_op
+                end
+                current_cmd = cmd
+
+                current_info_pre = current_cmd:sub(0, curpos)
+                current_info_post =  current_cmd:sub(curpos+1, #current_cmd)
+                if embed_args then
+                    current_info_pre = embed_args.cmd_prefix.."["..current_info_pre
+                    current_info_post = current_info_post.."]"..embed_args.cmd_suffix
+                end
 
                 current_msg = ""
-                if #open_areas == 0 and not pending_op then
+                if new_closed_areas and #open_areas == 0 and not pending_op then
                     current_msg = "(enter to apply)"
                 end
                 return true
@@ -261,13 +256,13 @@ function module.create(data)
 
         local move_cursor = function(n)
             curpos = curpos + n
-            if curpos > #current_input then
-                curpos = #current_input
+            if curpos > #current_cmd then
+                curpos = #current_cmd
             elseif curpos < 0 then
                 curpos = 0
             end
             -- trigger refresh
-            set_cmd(current_input)
+            set_cmd(current_cmd)
         end
 
 
@@ -275,11 +270,8 @@ function module.create(data)
             if key_translate_tab[key] ~= nil then
                 key = key_translate_tab[key]
             end
-            if #key > 1 then
-                return
-            end
 
-            return set_cmd(current_input:sub(0, curpos)..key..current_input:sub(curpos+1, #current_input), true)
+            return set_cmd(current_cmd:sub(0, curpos)..key..current_cmd:sub(curpos+1, #current_cmd), true)
         end
 
 
@@ -349,13 +341,6 @@ function module.create(data)
                 cr:reset_clip()
             end
 
-            local pl_cmd = lgi.Pango.Layout.create(cr)
-            pl_cmd:set_font_description(beautiful.get_merged_font(beautiful.font, info_size))
-            pl_cmd:set_alignment("CENTER")
-            --pl_cmd:set_text(string.lpad(current_cmd, #current_cmd + (embed_args and #embed_args.cmd_prefix or 0), " "))
-            pl_cmd:set_text(string.rep(' ', embed_args and #embed_args.cmd_prefix + 1 or 0)..current_cmd)
-            local w_cmd, h_cmd = pl_cmd:get_pixel_size()
-
             local pl = lgi.Pango.Layout.create(cr)
             pl:set_font_description(beautiful.get_merged_font(beautiful.font, info_size))
             pl:set_alignment("CENTER")
@@ -386,10 +371,10 @@ function module.create(data)
                 cr:fill()
             end
             local wpad, hpad = dpi(50), dpi(5)
-            local mw, mh = max(max(w, w_msg), w_cmd) + wpad, h + h_cmd + hpad
-            --if current_msg ~= "" then
-            mh = mh + h_msg + lh
-            --end
+            local mw, mh = max(w, w_msg) + wpad, h + hpad
+            if current_msg ~= "" then
+                mh = mh + h_msg + lh
+            end
             if mw < dpi(120) then
                 mw = dpi(120)
             end
@@ -401,7 +386,7 @@ function module.create(data)
             if cursor_border >= 0 then
                 cr:rectangle(
                     width / 2 - w / 2 + w0,
-                    height / 2 - h / 2 + h_cmd + lh,
+                    height / 2 - h / 2 + lh,
                     2 * cursor_border + cursor_width,
                     h
                 )
@@ -410,15 +395,14 @@ function module.create(data)
             end
             cr:rectangle(
                 cursor_border + width / 2 - w / 2 + w0,
-                cursor_border + height / 2 - h / 2 + h_cmd + lh,
+                cursor_border + height / 2 - h / 2 + lh,
                 cursor_width,
                 h - 2 * cursor_border
             )
             cr:set_source_rgba(1, 1, 1, 1)
             cr:fill()
-            draw(pl_cmd, w_cmd, h_cmd, 0, gears.color("#777"))
-            draw(pl, w, h, h_cmd + lh)
-            draw(pl_msg, w_msg, h_msg, 2*(h + lh))
+            draw(pl, w, h, lh)
+            draw(pl_msg, w_msg, h_msg, h + lh)
         end
 
         local function refresh()
@@ -445,17 +429,7 @@ function module.create(data)
 
         log(DEBUG, "interactive layout editing starts")
 
-        local _, _, areas = layout.machi_get_instance_data(screen, tag)
-        current_cmd = ""
-        if not embed_args then
-            current_cmd = machi_engine.areas_to_command(areas)
-            if current_cmd == "." then
-                current_cmd = ""
-            end
-        end
-        current_input = current_cmd
-        set_cmd(current_input)
-        move_cursor(#current_input)
+        set_cmd("")
         refresh()
 
         kg = awful.keygrabber.run(
@@ -464,20 +438,8 @@ function module.create(data)
                     return
                 end
 
-                local modmask = 0
-                for _, m in ipairs(mod) do
-                    if m == "Shift" then
-                        modmask = modmask | MOD_SHIFT
-                    elseif m == "Control" then
-                        modmask = modmask | MOD_CTRL
-                    elseif m == "Mod1" then
-                        modmask = modmask | MOD_ALT
-                    end
-                end
-
                 local ok, err = pcall(
                     function ()
-                        require("gears.timer").delayed_call(function()
                         if key == "Left" then
                             move_cursor(-1)
                         elseif key == "Right" then
@@ -502,7 +464,7 @@ function module.create(data)
                                 if s < 0 then
                                     s = 0
                                 end
-                                set_cmd(current_input:sub(0, s)..current_input:sub(curpos+1, #current_input))
+                                set_cmd(current_cmd:sub(0, s)..current_cmd:sub(curpos+1, #current_cmd))
                                 move_cursor(-1)
                             end
                         elseif key == "Escape" then
@@ -522,20 +484,25 @@ function module.create(data)
                             log(DEBUG, "restore history #" .. tostring(cmd_index) .. ":" .. data.cmds[cmd_index])
                             set_cmd(data.cmds[cmd_index])
                             move_cursor(#data.cmds[cmd_index])
-                        elseif key == "c" and modmask&MOD_CTRL ~= 0 then
-                            set_cmd("")
-                            move_cursor(#current_input)
-                        elseif #open_areas > 0 or pending_op or curpos < #current_input then
+                        elseif #open_areas > 0 or pending_op or curpos < #current_cmd then
                             if key == "." or key == "Return" then
-                                move_cursor(#current_input)
+                                move_cursor(#current_cmd)
                             end
-                            handle_key(key)
-                            move_cursor(1)
+                            if handle_key(key) then
+                                move_cursor(1)
+                            end
                         else
                             if key == "Return" then
-                                local shift = modmask&MOD_SHIFT > 0
+                                local alt = false
+                                for _, m in ipairs(mod) do
+                                    if m == "Shift" then
+                                        alt = true
+                                        break
+                                    end
+                                end
+
                                 local instance_name, persistent = layout.machi_get_instance_info(tag)
-                                if not shift and persistent then
+                                if not alt and persistent then
                                     table.remove(data.cmds, #data.cmds)
                                     add_cmd(instance_name, get_final_cmd())
                                     current_msg = "Saved!"
@@ -565,7 +532,6 @@ function module.create(data)
                                 cleanup()
                             end
                         end
-                end)
                 end)
 
                 if not ok then
